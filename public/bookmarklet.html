@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Установка букмарклета для мониторинга</title>
+    <style>
+        :root {
+            --primary-color: #5180e9;
+            --secondary-color: #6c757d;
+            --background-color: #f8f9fa;
+            --border-color: #dee2e6;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            background-color: var(--background-color);
+            color: #333;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+        
+        h2 {
+            margin-top: 2rem;
+            color: #444;
+        }
+        
+        .bookmarklet {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .instruction-step {
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .instruction-step h3 {
+            margin-bottom: 0.5rem;
+        }
+        
+        code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: Consolas, Monaco, "Andale Mono", monospace;
+            font-size: 0.9rem;
+        }
+        
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        img {
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Установка букмарклета для мониторинга</h1>
+        
+        <p>Для мониторинга веб-страниц необходимо добавить специальный букмарклет в ваш браузер. Букмарклет - это закладка, которая содержит JavaScript-код вместо обычной ссылки на страницу.</p>
+        
+        <div class="note">
+            <strong>Примечание:</strong> Букмарклет работает только при запущенном сервере мониторинга. Убедитесь, что сервер запущен перед использованием букмарклета.
+        </div>
+        
+        <h2>Вариант 1: Перетащить букмарклет в закладки</h2>
+        
+        <div class="instruction-step">
+            <h3>Шаг 1: Перетащите эту ссылку в панель закладок</h3>
+            <a class="bookmarklet" href="javascript:(function(){var s=document.createElement('script');s.src='http://localhost:3000/client.js';document.body.appendChild(s);})()">Мониторинг</a>
+            <p>Просто перетащите эту кнопку в панель закладок вашего браузера.</p>
+        </div>
+        
+        <h2>Вариант 2: Добавить вручную</h2>
+        
+        <div class="instruction-step">
+            <h3>Шаг 1: Создайте новую закладку</h3>
+            <p>Кликните правой кнопкой мыши на панель закладок и выберите "Добавить страницу" или "Добавить закладку".</p>
+        </div>
+        
+        <div class="instruction-step">
+            <h3>Шаг 2: Введите данные</h3>
+            <p>В поле "Имя" или "Название" введите: <code>Мониторинг</code></p>
+            <p>В поле "URL" или "Адрес" введите следующий код:</p>
+            <code>javascript:(function(){var s=document.createElement('script');s.src='http://localhost:3000/client.js';document.body.appendChild(s);})()</code>
+        </div>
+        
+        <div class="instruction-step">
+            <h3>Шаг 3: Сохраните закладку</h3>
+            <p>Нажмите "Сохранить" или "Готово" для создания букмарклета.</p>
+        </div>
+        
+        <h2>Использование букмарклета</h2>
+        
+        <div class="instruction-step">
+            <h3>Шаг 1: Откройте страницу для мониторинга</h3>
+            <p>Перейдите на веб-страницу, которую хотите мониторить.</p>
+        </div>
+        
+        <div class="instruction-step">
+            <h3>Шаг 2: Активируйте букмарклет</h3>
+            <p>Нажмите на созданный букмарклет в панели закладок.</p>
+            <p>Внешне на странице ничего не изменится, но в консоли разработчика (F12) можно будет увидеть сообщение о подключении к серверу.</p>
+        </div>
+        
+        <div class="instruction-step">
+            <h3>Шаг 3: Проверьте подключение</h3>
+            <p>Откройте админ-панель мониторинга по адресу: <a href="http://localhost:3000/admin.html">http://localhost:3000/admin.html</a></p>
+            <p>Убедитесь, что ваша страница появилась в списке клиентов.</p>
+        </div>
+        
+        <div class="note">
+            <strong>Важно:</strong> Если вы используете VPN или находитесь за NAT, возможно, потребуется изменить адрес сервера в букмарклете с <code>localhost</code> на реальный IP-адрес сервера.
+        </div>
+        
+        <h2>Устранение проблем</h2>
+        
+        <div class="instruction-step">
+            <h3>Букмарклет не работает</h3>
+            <ul>
+                <li>Убедитесь, что сервер мониторинга запущен</li>
+                <li>Проверьте, не блокирует ли браузер выполнение JavaScript</li>
+                <li>Проверьте консоль разработчика (F12) на наличие ошибок</li>
+                <li>Некоторые сайты могут блокировать внедрение внешних скриптов</li>
+            </ul>
+        </div>
+        
+        <div class="instruction-step">
+            <h3>Страница не отображается в админ-панели</h3>
+            <ul>
+                <li>Обновите админ-панель</li>
+                <li>Проверьте подключение к интернету</li>
+                <li>Проверьте, что клиентский скрипт загрузился успешно</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

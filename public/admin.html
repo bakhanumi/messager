@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель мониторинга</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --background-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --dark-color: #343a40;
+            --light-color: #f8f9fa;
+            
+            /* HuggingFace style colors */
+            --hf-blue: #5180e9;
+            --hf-dark: #242424;
+            --hf-light: #f5f8ff;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            background-color: var(--background-color);
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background-color: var(--hf-dark);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            background: white;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.03);
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.2s;
+            position: relative;
+            font-weight: 500;
+            border: 1px solid transparent;
+            border-bottom: none;
+        }
+        
+        .tab:hover {
+            background-color: var(--hf-light);
+        }
+        
+        .tab.active {
+            color: var(--hf-blue);
+            background-color: white;
+            border-color: var(--border-color);
+            border-bottom: 2px solid white;
+            margin-bottom: -1px;
+        }
+        
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--hf-blue);
+            border-radius: 2px 2px 0 0;
+        }
+        
+        .client-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .client-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid var(--border-color);
+        }
+        
+        .client-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .client-title {
+            font-weight: 600;
+            color: var(--hf-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        
+        .client-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .client-url {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.75rem;
+            word-break: break-all;
+        }
+        
+        .client-tabs {
+            display: flex;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .client-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .client-tab.active {
+            border-bottom-color: var(--hf-blue);
+            color: var(--hf-blue);
+            font-weight: 500;
+        }
+        
+        .btn {
+            padding: 0.4rem 0.75rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary {
+            background-color: var(--hf-blue);
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .client-content-panel {
+            display: none;
+        }
+        
+        .client-content-panel.active {
+            display: block;
+        }
+        
+        .preview-frame {
+            width: 100%;
+            height: 250px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            background-color: white;
+            overflow: auto;
+        }
+        
+        .preview-content {
+            width: 100%;
+            height: 250px;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .preview-content .preview-frame {
+            height: 100%;
+            margin: 0;
+            border: none;
+            overflow: auto;
+        }
+        
+        .preview-error {
+            width: 100%;
+            height: 250px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: var(--secondary-color);
+            background-color: #f5f5f5;
+            font-size: 0.9rem;
+        }
+        
+        .preview-error i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--danger-color);
+        }
+        
+        /* Стили для полноэкранного режима */
+        .preview-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .preview-fullscreen .preview-content {
+            flex: 1;
+            height: auto;
+            width: 100%;
+            border: none;
+            margin: 0;
+        }
+        
+        .preview-fullscreen .preview-frame {
+            height: 100%;
+            width: 100%;
+            border: none;
+            margin: 0;
+        }
+        
+        .preview-fullscreen-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--hf-dark);
+            color: white;
+            z-index: 10000;
+        }
+        
+        .preview-fullscreen-title {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80%;
+        }
+        
+        .preview-fullscreen-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .preview-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .preview-actions button {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .preview-alternative {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .preview-alternative a {
+            color: var(--hf-blue);
+            text-decoration: none;
+        }
+        
+        .preview-alternative a:hover {
+            text-decoration: underline;
+        }
+        
+        .code-preview,
+        .text-preview {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            max-height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border: 1px solid var(--border-color);
+        }
+        
+        .text-preview {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            white-space: normal;
+            line-height: 1.5;
+        }
+        
+        .message-input {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 0.5rem;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            z-index: 10001;
+            border: 1px solid var(--border-color);
+            max-width: 450px;
+        }
+        
+        .preview-fullscreen .message-input {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10001;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+        }
+        
+        .message-input input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            width: 200px;
+            font-size: 0.9rem;
+        }
+        
+        .message-opacity {
+            display: flex;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+        
+        .message-opacity label {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin-right: 0.5rem;
+        }
+        
+        .message-opacity input {
+            width: 100px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .status-active {
+            background-color: var(--success-color);
+        }
+        
+        .status-paused {
+            background-color: var(--secondary-color);
+        }
+        
+        .settings-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .settings-card h2 {
+            margin-bottom: 1.5rem;
+            color: var(--hf-dark);
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+        
+        .setting-item {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-item label {
+            font-weight: 500;
+        }
+        
+        .setting-item input[type="number"],
+        .setting-item input[type="range"] {
+            width: 150px;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .client-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 6px;
+            padding: 1rem;
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--hf-blue);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--secondary-color);
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .client-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .settings-card {
+                padding: 1rem;
+            }
+            
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .setting-item label {
+                margin-bottom: 0.5rem;
+            }
+        }
+        
+        /* Добавляем стили для плавающего превью */
+        .floating-preview-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 10002;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .floating-preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--hf-dark);
+            color: white;
+            cursor: move;
+        }
+        
+        .floating-preview-title {
+            font-weight: 500;
+        }
+        
+        .floating-preview-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .floating-preview-content {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+        
+        .floating-preview-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.3);
+            z-index: 10001;
+        }
+        
+        .preview-actions button {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            margin-right: 4px;
+        }
+        
+        /* Стили для панели сообщений в плавающем превью */
+        .floating-message-input {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            background-color: white;
+        }
+        
+        .floating-message-input input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            flex: 1;
+            font-size: 0.9rem;
+        }
+        
+        .floating-message-settings {
+            display: flex;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        }
+        
+        .floating-message-settings label {
+            margin-right: 0.5rem;
+        }
+        
+        .floating-message-settings input {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Админ-панель мониторинга</h1>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="clients">Клиенты</div>
+            <div class="tab" data-tab="settings">Настройки</div>
+        </div>
+        
+        <div id="clients" class="tab-content">
+            <div class="client-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalClients">0</div>
+                    <div class="stat-label">Всего клиентов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeClients">0</div>
+                    <div class="stat-label">Активных</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="pausedClients">0</div>
+                    <div class="stat-label">На паузе</div>
+                </div>
+            </div>
+            
+            <div class="client-list" id="clientList">
+                <div class="empty-state">
+                    <h3>Нет подключенных клиентов</h3>
+                    <p>Добавьте букмарклет на страницу, чтобы начать мониторинг</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="settings" class="tab-content" style="display: none;">
+            <div class="settings-card">
+                <h2>Настройки</h2>
+                <div class="setting-item">
+                    <label>Интервал обновления (минуты):</label>
+                    <input type="number" id="updateInterval" value="25" min="1" max="120">
+                </div>
+                <div class="setting-item">
+                    <label>Прозрачность сообщений:</label>
+                    <input type="range" id="messageOpacity" min="0.1" max="1" step="0.1" value="0.8">
+                </div>
+                <div class="setting-item">
+                    <button class="btn btn-primary" id="applySettings">Применить настройки</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="message-input">
+        <div>
+            <input type="text" id="messageInput" placeholder="Введите сообщение...">
+            <div class="message-opacity">
+                <label>Прозрачность:</label>
+                <input type="range" id="messageOpacitySend" min="0.1" max="1" step="0.1" value="0.8">
+            </div>
+        </div>
+        <button class="btn btn-primary" id="sendMessage">Отправить</button>
+    </div>
+    
+    <script>
+        class AdminPanel {
+            constructor() {
+                this.ws = null;
+                this.clients = new Map();
+                this.selectedClientId = null;
+                this.settings = {
+                    updateInterval: 25 * 60 * 1000,
+                    messageOpacity: 0.8
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.connect();
+                this.setupEventListeners();
+            }
+            
+            connect() {
+                this.ws = new WebSocket('ws://localhost:3000');
+                
+                this.ws.onopen = () => {
+                    console.log('Подключено к серверу');
+                    this.register();
+                };
+                
+                this.ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('Ошибка обработки сообщения:', error);
+                    }
+                };
+                
+                this.ws.onclose = () => {
+                    console.log('Соединение закрыто');
+                    setTimeout(() => this.connect(), 5000);
+                };
+                
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket ошибка:', error);
+                };
+            }
+            
+            register() {
+                this.sendMessage({
+                    type: 'register',
+                    role: 'admin'
+                });
+            }
+            
+            setupEventListeners() {
+                // Основные вкладки
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+                });
+                
+                // Отправка сообщения
+                document.getElementById('sendMessage').addEventListener('click', () => {
+                    const message = document.getElementById('messageInput').value;
+                    const opacity = parseFloat(document.getElementById('messageOpacitySend').value);
+                    
+                    if (message && this.selectedClientId) {
+                        this.sendClientMessage(this.selectedClientId, message, opacity);
+                        document.getElementById('messageInput').value = '';
+                    }
+                });
+                
+                // Применение настроек
+                document.getElementById('applySettings').addEventListener('click', () => {
+                    const interval = parseInt(document.getElementById('updateInterval').value) * 60 * 1000;
+                    const opacity = parseFloat(document.getElementById('messageOpacity').value);
+                    
+                    this.settings.updateInterval = interval;
+                    this.settings.messageOpacity = opacity;
+                    
+                    // Отправка настроек на сервер
+                    this.sendMessage({
+                        type: 'updateSettings',
+                        settings: this.settings
+                    });
+                    
+                    // Обновление интервала для всех клиентов
+                    this.updateCollectionInterval(interval);
+                });
+            }
+            
+            switchTab(tabId) {
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                document.getElementById(tabId).style.display = 'block';
+                
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            }
+            
+            handleMessage(data) {
+                switch(data.type) {
+                    case 'clientList':
+                        this.updateClientList(data.clients);
+                        break;
+                    case 'clientData':
+                        this.updateClientData(data.clientId, data.data);
+                        break;
+                    case 'clientDisconnected':
+                        this.removeClient(data.clientId);
+                        break;
+                    case 'clientStatus':
+                        this.updateClientStatus(data.clientId, data.isPaused);
+                        break;
+                    case 'settings':
+                        this.updateSettings(data.settings);
+                        break;
+                }
+            }
+            
+            updateClientList(clients) {
+                this.clients.clear();
+                
+                clients.forEach(client => {
+                    this.clients.set(client.id, {
+                        ...client,
+                        data: {}
+                    });
+                });
+                
+                this.renderClientList();
+                this.updateStats();
+            }
+            
+            renderClientList() {
+                const clientList = document.getElementById('clientList');
+                clientList.innerHTML = '';
+                
+                if (this.clients.size === 0) {
+                    clientList.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Нет подключенных клиентов</h3>
+                            <p>Добавьте букмарклет на страницу, чтобы начать мониторинг</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                this.clients.forEach((client, id) => {
+                    const card = this.createClientCard(id, client);
+                    clientList.appendChild(card);
+                });
+            }
+            
+            createClientCard(clientId, client) {
+                const card = document.createElement('div');
+                card.className = 'client-card';
+                card.dataset.clientId = clientId;
+                
+                // Определяем статус клиента
+                const statusClass = client.isPaused ? 'status-paused' : 'status-active';
+                const btnText = client.isPaused ? 'Возобновить' : 'Пауза';
+                const btnClass = client.isPaused ? 'btn-primary' : 'btn-secondary';
+                
+                // Формат времени последнего обновления
+                const lastUpdate = client.lastUpdate ? new Date(client.lastUpdate).toLocaleTimeString() : 'Нет данных';
+                
+                card.innerHTML = `
+                    <div class="client-header">
+                        <div class="client-title">
+                            <span class="status-indicator ${statusClass}"></span>
+                            ${client.title || 'Без названия'}
+                        </div>
+                        <div class="client-actions">
+                            <button class="btn ${btnClass} pause-btn">${btnText}</button>
+                            <button class="btn btn-danger delete-btn">Удалить</button>
+                        </div>
+                    </div>
+                    <div class="client-url" title="${client.url}">${client.url}</div>
+                    <div class="client-tabs">
+                        <div class="client-tab active" data-tab="preview-${clientId}">Превью</div>
+                        <div class="client-tab" data-tab="text-${clientId}">Текст</div>
+                        <div class="client-tab" data-tab="html-${clientId}">HTML</div>
+                    </div>
+                    
+                    <div id="preview-${clientId}" class="client-content-panel active">
+                        <div class="preview-container">
+                            <div class="preview-actions">
+                                <button class="btn btn-sm btn-outline-primary fullscreen-btn" onclick="toggleFullscreen(this)">
+                                    <i class="fas fa-expand"></i> На весь экран
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="openFloatingPreview(this)">
+                                    <i class="fas fa-external-link-alt"></i> Отдельно
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="openInNewTab('${client.url}')">
+                                    <i class="fas fa-external-link-alt"></i> В новой вкладке
+                                </button>
+                            </div>
+                            <div class="preview-content">
+                                <div class="preview-frame" data-client-id="${clientId}">
+                                    ${client.data.html ? this.escapeHtml(client.data.html) : 'Ожидание данных...'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="text-${clientId}" class="client-content-panel text-preview">
+                        ${client.data.text || 'Ожидание данных...'}
+                    </div>
+                    
+                    <div id="html-${clientId}" class="client-content-panel code-preview">
+                        ${client.data.html ? this.escapeHtml(client.data.html) : 'Ожидание данных...'}
+                    </div>
+                `;
+                
+                // Обработчики кнопок
+                card.querySelector('.pause-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleClientPause(clientId);
+                });
+                
+                card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('Вы уверены, что хотите удалить этого клиента?')) {
+                        this.deleteClient(clientId);
+                    }
+                });
+                
+                // Обработчики вкладок
+                card.querySelectorAll('.client-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        // Сначала находим все вкладки и панели в этой карточке
+                        const cardTabs = card.querySelectorAll('.client-tab');
+                        const contentPanels = card.querySelectorAll('.client-content-panel');
+                        
+                        // Деактивируем все вкладки и панели
+                        cardTabs.forEach(t => t.classList.remove('active'));
+                        contentPanels.forEach(p => p.classList.remove('active'));
+                        
+                        // Активируем выбранную вкладку
+                        tab.classList.add('active');
+                        
+                        // Активируем соответствующую панель
+                        const panelId = tab.dataset.tab;
+                        card.querySelector(`#${panelId}`).classList.add('active');
+                    });
+                });
+                
+                // Выбор карточки
+                card.addEventListener('click', () => {
+                    this.selectedClientId = clientId;
+                    document.querySelectorAll('.client-card').forEach(c => {
+                        c.style.border = '1px solid var(--border-color)';
+                    });
+                    card.style.border = '1px solid var(--hf-blue)';
+                });
+                
+                return card;
+            }
+            
+            updateClientData(clientId, data) {
+                const client = this.clients.get(clientId);
+                if (client) {
+                    client.data = data;
+                    
+                    const card = document.querySelector(`.client-card[data-client-id="${clientId}"]`);
+                    if (card) {
+                        // Обновляем HTML
+                        const htmlPanel = card.querySelector(`#html-${clientId}`);
+                        if (htmlPanel) {
+                            htmlPanel.textContent = data.html || 'Нет данных';
+                        }
+                        
+                        // Обновляем текст
+                        const textPanel = card.querySelector(`#text-${clientId}`);
+                        if (textPanel) {
+                            textPanel.textContent = data.text || 'Нет данных';
+                        }
+                        
+                        // Обновляем превью
+                        const previewFrame = card.querySelector(`.preview-frame[data-client-id="${clientId}"]`);
+                        if (previewFrame) {
+                            previewFrame.innerHTML = data.html || 'Ожидание данных...';
+                        }
+                    }
+                }
+            }
+            
+            updateClientStatus(clientId, isPaused) {
+                const client = this.clients.get(clientId);
+                if (client) {
+                    client.isPaused = isPaused;
+                    
+                    const card = document.querySelector(`[data-client-id="${clientId}"]`);
+                    if (card) {
+                        const indicator = card.querySelector('.status-indicator');
+                        const pauseBtn = card.querySelector('.pause-btn');
+                        
+                        indicator.className = `status-indicator status-${isPaused ? 'paused' : 'active'}`;
+                        pauseBtn.textContent = isPaused ? 'Возобновить' : 'Пауза';
+                        pauseBtn.className = `btn ${isPaused ? 'btn-primary' : 'btn-secondary'} pause-btn`;
+                    }
+                }
+                
+                this.updateStats();
+            }
+            
+            removeClient(clientId) {
+                this.clients.delete(clientId);
+                
+                const card = document.querySelector(`[data-client-id="${clientId}"]`);
+                if (card) {
+                    card.remove();
+                }
+                
+                if (this.selectedClientId === clientId) {
+                    this.selectedClientId = null;
+                }
+                
+                if (this.clients.size === 0) {
+                    document.getElementById('clientList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>Нет подключенных клиентов</h3>
+                            <p>Добавьте букмарклет на страницу, чтобы начать мониторинг</p>
+                        </div>
+                    `;
+                }
+                
+                this.updateStats();
+            }
+            
+            sendMessage(data) {
+                if (this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify(data));
+                }
+            }
+            
+            sendClientMessage(clientId, message, opacity) {
+                this.sendMessage({
+                    type: 'command',
+                    clientId,
+                    command: 'message',
+                    message,
+                    opacity
+                });
+            }
+            
+            toggleClientPause(clientId) {
+                const client = this.clients.get(clientId);
+                if (client) {
+                    const isPaused = !client.isPaused;
+                    const command = isPaused ? 'pause' : 'resume';
+                    
+                    this.sendMessage({
+                        type: 'command',
+                        clientId,
+                        command
+                    });
+                    
+                    this.updateClientStatus(clientId, isPaused);
+                }
+            }
+            
+            deleteClient(clientId) {
+                this.sendMessage({
+                    type: 'command',
+                    clientId,
+                    command: 'delete'
+                });
+                
+                this.removeClient(clientId);
+            }
+            
+            updateCollectionInterval(interval) {
+                this.sendMessage({
+                    type: 'command',
+                    command: 'updateInterval',
+                    interval
+                });
+            }
+            
+            updateSettings(settings) {
+                this.settings = { ...this.settings, ...settings };
+                
+                // Обновляем UI
+                document.getElementById('updateInterval').value = this.settings.updateInterval / (60 * 1000);
+                document.getElementById('messageOpacity').value = this.settings.messageOpacity;
+                document.getElementById('messageOpacitySend').value = this.settings.messageOpacity;
+            }
+            
+            updateStats() {
+                const total = this.clients.size;
+                let active = 0;
+                let paused = 0;
+                
+                this.clients.forEach(client => {
+                    if (client.isPaused) {
+                        paused++;
+                    } else {
+                        active++;
+                    }
+                });
+                
+                document.getElementById('totalClients').textContent = total;
+                document.getElementById('activeClients').textContent = active;
+                document.getElementById('pausedClients').textContent = paused;
+            }
+            
+            escapeHtml(html) {
+                return html
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+        }
+        
+        // Инициализация админ-панели
+        let adminPanelInstance;
+        document.addEventListener('DOMContentLoaded', () => {
+            adminPanelInstance = new AdminPanel();
+        });
+
+        function handleIframeError(iframe) {
+            const previewContainer = iframe.parentElement;
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'preview-error';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>Не удалось загрузить превью сайта</div>
+                <div class="preview-alternative">
+                    <a href="${iframe.src}" target="_blank">Открыть сайт в новой вкладке</a>
+                </div>
+            `;
+            previewContainer.replaceChild(errorDiv, iframe);
+        }
+
+        function createPreviewContainer(client) {
+            const container = document.createElement('div');
+            container.className = 'preview-container';
+            
+            const actions = document.createElement('div');
+            actions.className = 'preview-actions';
+            actions.innerHTML = `
+                <button class="btn btn-sm btn-outline-primary fullscreen-btn" onclick="toggleFullscreen(this)">
+                    <i class="fas fa-expand"></i> На весь экран
+                </button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openFloatingPreview(this)">
+                    <i class="fas fa-external-link-alt"></i> Отдельно
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openInNewTab('${client.url}')">
+                    <i class="fas fa-external-link-alt"></i> В новой вкладке
+                </button>
+            `;
+            
+            const previewContent = document.createElement('div');
+            previewContent.className = 'preview-content';
+            
+            const previewFrame = document.createElement('div');
+            previewFrame.className = 'preview-frame';
+            previewFrame.dataset.clientId = client.id;
+            previewFrame.innerHTML = client.data.html || 'Ожидание данных...';
+            
+            previewContent.appendChild(previewFrame);
+            container.appendChild(actions);
+            container.appendChild(previewContent);
+            return container;
+        }
+
+        function toggleFullscreen(button) {
+            const container = button.closest('.preview-container');
+            const previewContent = container.querySelector('.preview-content');
+            const previewFrame = container.querySelector('.preview-frame');
+            const clientId = previewFrame.dataset.clientId;
+            
+            // Создаем новое окно
+            const previewWindow = window.open('', '_blank', 'width=1024,height=768');
+            
+            // Добавляем базовые стили для нового окна
+            previewWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="ru">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Превью сайта</title>
+                    <style>
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                        }
+                        .preview-header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            padding: 10px 20px;
+                            background-color: #242424;
+                            color: white;
+                        }
+                        .preview-title {
+                            font-weight: 500;
+                        }
+                        .preview-content {
+                            height: calc(100vh - 50px);
+                            overflow: auto;
+                            padding: 20px;
+                        }
+                        .btn {
+                            padding: 0.4rem 0.75rem;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 0.875rem;
+                            transition: all 0.2s;
+                            font-weight: 500;
+                            background-color: #5180e9;
+                            color: white;
+                        }
+                        .btn:hover {
+                            opacity: 0.9;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="preview-header">
+                        <div class="preview-title">Превью сайта</div>
+                        <button class="btn" onclick="window.close()">Закрыть</button>
+                    </div>
+                    <div class="preview-content">
+                        ${previewFrame.innerHTML}
+                    </div>
+                </body>
+                </html>
+            `);
+            
+            // Закрываем документ для завершения записи
+            previewWindow.document.close();
+        }
+
+        function openInNewTab(url) {
+            window.open(url, '_blank');
+        }
+
+        function openFloatingPreview(button) {
+            const container = button.closest('.preview-container');
+            const previewFrame = container.querySelector('.preview-frame');
+            const clientId = previewFrame.dataset.clientId;
+            const title = button.closest('.client-card').querySelector('.client-title').textContent.trim();
+            
+            // Создаем фоновую подложку
+            const backdrop = document.createElement('div');
+            backdrop.className = 'floating-preview-backdrop';
+            backdrop.onclick = (e) => {
+                // Закрываем только при клике на подложку, не на контейнер
+                if (e.target === backdrop) {
+                    document.body.removeChild(backdrop);
+                    document.body.removeChild(floatingContainer);
+                }
+            };
+            
+            // Создаем плавающий контейнер
+            const floatingContainer = document.createElement('div');
+            floatingContainer.className = 'floating-preview-container';
+            floatingContainer.dataset.clientId = clientId;
+            
+            // Создаем заголовок для перетаскивания
+            const header = document.createElement('div');
+            header.className = 'floating-preview-header';
+            header.innerHTML = `
+                <div class="floating-preview-title">${title}</div>
+                <div class="floating-preview-actions">
+                    <button class="btn" onclick="closeFloatingPreview()">Закрыть</button>
+                </div>
+            `;
+            
+            // Добавляем возможность перетаскивания
+            let isDragging = false;
+            let offsetX, offsetY;
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offsetX = e.clientX - floatingContainer.getBoundingClientRect().left;
+                offsetY = e.clientY - floatingContainer.getBoundingClientRect().top;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    floatingContainer.style.transform = 'none';
+                    floatingContainer.style.left = e.clientX - offsetX + 'px';
+                    floatingContainer.style.top = e.clientY - offsetY + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Создаем содержимое превью
+            const previewContent = document.createElement('div');
+            previewContent.className = 'floating-preview-content';
+            previewContent.innerHTML = previewFrame.innerHTML;
+            
+            // Создаем поле для ввода сообщения
+            const messageInput = document.createElement('div');
+            messageInput.className = 'floating-message-input';
+            messageInput.innerHTML = `
+                <div style="flex: 1;">
+                    <input type="text" class="floating-message-text" placeholder="Введите сообщение...">
+                    <div class="floating-message-settings">
+                        <label>Прозрачность:</label>
+                        <input type="range" class="floating-message-opacity" min="0.1" max="1" step="0.1" value="0.8">
+                    </div>
+                </div>
+                <button class="btn btn-primary floating-message-send">Отправить</button>
+            `;
+            
+            // Собираем всё вместе
+            floatingContainer.appendChild(header);
+            floatingContainer.appendChild(previewContent);
+            floatingContainer.appendChild(messageInput);
+            
+            // Добавляем обработчик отправки сообщения
+            const sendButton = messageInput.querySelector('.floating-message-send');
+            sendButton.addEventListener('click', () => {
+                const text = messageInput.querySelector('.floating-message-text').value;
+                const opacity = parseFloat(messageInput.querySelector('.floating-message-opacity').value);
+                
+                if (text && clientId && adminPanelInstance) {
+                    adminPanelInstance.sendClientMessage(clientId, text, opacity);
+                    messageInput.querySelector('.floating-message-text').value = '';
+                }
+            });
+            
+            // Добавляем обработчик Enter для отправки
+            const textInput = messageInput.querySelector('.floating-message-text');
+            textInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendButton.click();
+                }
+            });
+            
+            // Добавляем в DOM
+            document.body.appendChild(backdrop);
+            document.body.appendChild(floatingContainer);
+            
+            // Устанавливаем фокус на поле ввода
+            setTimeout(() => {
+                textInput.focus();
+            }, 100);
+        }
+        
+        function closeFloatingPreview() {
+            const backdrop = document.querySelector('.floating-preview-backdrop');
+            const container = document.querySelector('.floating-preview-container');
+            
+            if (backdrop) document.body.removeChild(backdrop);
+            if (container) document.body.removeChild(container);
+        }
+    </script>
+</body>
+</html> 
