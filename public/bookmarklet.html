@@ -84,6 +84,38 @@
             margin: 1rem 0;
         }
     </style>
+    <script>
+        // Создание динамического букмарклета на основе текущего хоста
+        window.onload = function() {
+            // Получаем текущий хост
+            const host = window.location.host;
+            const protocol = window.location.protocol;
+            
+            // Создаем код букмарклета с текущим хостом
+            const bookmarkletCode = `javascript:(function(){var s=document.createElement('script');s.src='${protocol}//${host}/client.js';document.body.appendChild(s);})()`;
+            
+            // Обновляем все элементы букмарклета на странице
+            const bookmarkletLinks = document.querySelectorAll('.bookmarklet');
+            bookmarkletLinks.forEach(link => {
+                link.href = bookmarkletCode;
+            });
+            
+            // Обновляем текстовый код букмарклета
+            const codeElements = document.querySelectorAll('code');
+            codeElements.forEach(codeEl => {
+                if(codeEl.textContent.includes('javascript:(function(){var s=document.createElement')) {
+                    codeEl.textContent = bookmarkletCode;
+                }
+            });
+            
+            // Обновляем админ-ссылку
+            const adminLinks = document.querySelectorAll('a[href*="localhost:3000/admin.html"]');
+            adminLinks.forEach(link => {
+                link.href = `${protocol}//${host}/admin.html`;
+                link.textContent = `${protocol}//${host}/admin.html`;
+            });
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -142,7 +174,7 @@
         </div>
         
         <div class="note">
-            <strong>Важно:</strong> Если вы используете VPN или находитесь за NAT, возможно, потребуется изменить адрес сервера в букмарклете с <code>localhost</code> на реальный IP-адрес сервера.
+            <strong>Важно для Render.com:</strong> После деплоя на Render.com, все URL на этой странице автоматически обновляются на актуальные для использования с вашим хостом.
         </div>
         
         <h2>Устранение проблем</h2>
@@ -154,6 +186,7 @@
                 <li>Проверьте, не блокирует ли браузер выполнение JavaScript</li>
                 <li>Проверьте консоль разработчика (F12) на наличие ошибок</li>
                 <li>Некоторые сайты могут блокировать внедрение внешних скриптов</li>
+                <li>При использовании HTTPS сайтов, убедитесь что ваш сервер тоже работает через HTTPS</li>
             </ul>
         </div>
         
