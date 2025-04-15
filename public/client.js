@@ -62,7 +62,13 @@ class WebMonitor {
     }
     
     connect() {
-        this.ws = new WebSocket('ws://localhost:3000');
+        // Динамически определяем WebSocket URL на основе текущего хоста
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host || 'localhost:3000';
+        const wsUrl = `${protocol}//${host}`;
+        
+        console.log(`Подключение к WebSocket серверу: ${wsUrl}`);
+        this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
             console.log('Подключено к серверу');

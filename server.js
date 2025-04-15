@@ -286,9 +286,17 @@ function getClientsList() {
     }));
 }
 
-// Запуск сервера
+// Обновляем порт, чтобы использовать переменную окружения PORT, предоставляемую Render
 const PORT = process.env.PORT || 3000;
+
+// Найдем место, где создается или запускается сервер и внесем изменения
+// Вместо
+// server.listen(3000, () => {
+//   console.log('Сервер запущен на порту 3000');
+// });
+
+// Используем
 server.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
-    console.log(`Админ-панель доступна по адресу: http://localhost:${PORT}/admin.html`);
+  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`Дата и время запуска: ${new Date().toISOString()}`);
 }); 
