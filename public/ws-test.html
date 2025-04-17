@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест WebSocket соединения</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #4a6ee0;
+        }
+        
+        .status-box {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .pending {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .info {
+            background-color: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        button {
+            background: #4a6ee0;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #3a5ecc;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .status-label {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .log-container {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .log-time {
+            color: #666;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест WebSocket соединения</h1>
+    
+    <div class="status-box pending" id="connection-status">
+        <h3>Статус соединения</h3>
+        <p>Проверка соединения...</p>
+    </div>
+    
+    <div class="status-grid">
+        <div class="status-item">
+            <div class="status-label">URL сервера:</div>
+            <div id="server-url"></div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">Протокол:</div>
+            <div id="protocol"></div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">Клиент ID:</div>
+            <div id="client-id">Не получен</div>
+        </div>
+        <div class="status-item">
+            <div class="status-label">WebSocket статус:</div>
+            <div id="ws-status">Не подключен</div>
+        </div>
+    </div>
+    
+    <div>
+        <button id="test-connection">Протестировать соединение</button>
+        <button id="check-server">Проверить статус сервера</button>
+        <button id="clear-logs">Очистить логи</button>
+    </div>
+    
+    <div class="log-container" id="log-container">
+        <div class="log-entry">Ожидание действий...</div>
+    </div>
+    
+    <script>
+        // Элементы страницы
+        const connectionStatus = document.getElementById('connection-status');
+        const serverUrlElement = document.getElementById('server-url');
+        const protocolElement = document.getElementById('protocol');
+        const clientIdElement = document.getElementById('client-id');
+        const wsStatusElement = document.getElementById('ws-status');
+        const logContainer = document.getElementById('log-container');
+        
+        // Кнопки
+        document.getElementById('test-connection').addEventListener('click', testConnection);
+        document.getElementById('check-server').addEventListener('click', checkServerStatus);
+        document.getElementById('clear-logs').addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            addLogEntry('Логи очищены');
+        });
+        
+        // Глобальная переменная для WebSocket
+        let ws = null;
+        
+        // При загрузке страницы
+        window.onload = function() {
+            // Обновляем информацию о сервере
+            const protocol = window.location.protocol;
+            const host = window.location.host || 'localhost:3000';
+            const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${host}`;
+            
+            serverUrlElement.textContent = `${protocol}//${host}`;
+            protocolElement.textContent = `HTTP: ${protocol}, WebSocket: ${wsProtocol}`;
+            
+            addLogEntry('Страница загружена. Готов к проверке соединения.');
+        };
+        
+        // Функция для проверки WebSocket соединения
+        function testConnection() {
+            if (ws) {
+                ws.close();
+                addLogEntry('Закрытие предыдущего соединения...');
+            }
+            
+            connectionStatus.className = 'status-box pending';
+            connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Подключение...</p>';
+            
+            try {
+                const protocol = window.location.protocol;
+                const host = window.location.host || 'localhost:3000';
+                const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${host}`;
+                
+                addLogEntry(`Попытка подключения к ${wsUrl}`);
+                
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function(event) {
+                    addLogEntry('WebSocket соединение установлено', 'success');
+                    connectionStatus.className = 'status-box success';
+                    connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Соединение установлено успешно!</p>';
+                    wsStatusElement.textContent = 'Подключен';
+                    
+                    // Регистрируем клиента
+                    const registerMessage = {
+                        type: 'register',
+                        role: 'client',
+                        url: window.location.href,
+                        title: document.title
+                    };
+                    
+                    addLogEntry('Отправка регистрационных данных: ' + JSON.stringify(registerMessage));
+                    ws.send(JSON.stringify(registerMessage));
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addLogEntry(`Получено сообщение: ${JSON.stringify(data)}`, 'info');
+                        
+                        if (data.type === 'setClientId') {
+                            clientIdElement.textContent = data.clientId;
+                            addLogEntry(`Получен ID клиента: ${data.clientId}`, 'success');
+                        }
+                    } catch (error) {
+                        addLogEntry(`Ошибка при обработке сообщения: ${error}`, 'error');
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    addLogEntry(`WebSocket соединение закрыто. Код: ${event.code}, Причина: ${event.reason || 'Не указана'}`, 'error');
+                    connectionStatus.className = 'status-box error';
+                    connectionStatus.innerHTML = `<h3>Статус соединения</h3><p>Соединение закрыто. Код: ${event.code}</p>`;
+                    wsStatusElement.textContent = 'Закрыто';
+                };
+                
+                ws.onerror = function(error) {
+                    addLogEntry('Ошибка WebSocket соединения', 'error');
+                    connectionStatus.className = 'status-box error';
+                    connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Ошибка соединения</p>';
+                    wsStatusElement.textContent = 'Ошибка';
+                };
+            } catch (error) {
+                addLogEntry(`Не удалось создать WebSocket соединение: ${error}`, 'error');
+                connectionStatus.className = 'status-box error';
+                connectionStatus.innerHTML = `<h3>Статус соединения</h3><p>Не удалось установить соединение: ${error}</p>`;
+                wsStatusElement.textContent = 'Ошибка';
+            }
+        }
+        
+        // Функция для проверки статуса сервера
+        function checkServerStatus() {
+            addLogEntry('Проверка статуса сервера...');
+            
+            fetch('/ws-status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addLogEntry(`Получен статус сервера: ${JSON.stringify(data)}`, 'info');
+                    
+                    const statusHtml = `
+                        <h3>Статус сервера</h3>
+                        <p>Сервер: ${data.server}</p>
+                        <p>WebSocket: ${data.websocket}</p>
+                        <p>Активных админов: ${data.activeAdmins}</p>
+                        <p>Активных клиентов: ${data.activeClients}</p>
+                        <p>Время сервера: ${data.serverTime}</p>
+                    `;
+                    
+                    connectionStatus.className = 'status-box info';
+                    connectionStatus.innerHTML = statusHtml;
+                })
+                .catch(error => {
+                    addLogEntry(`Ошибка при проверке статуса сервера: ${error}`, 'error');
+                    connectionStatus.className = 'status-box error';
+                    connectionStatus.innerHTML = `<h3>Статус сервера</h3><p>Ошибка: ${error}</p>`;
+                });
+        }
+        
+        // Функция для добавления записи в лог
+        function addLogEntry(message, type = '') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const time = new Date().toLocaleTimeString();
+            
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span> ${message}
+            `;
+            
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight; // Прокрутка вниз
+        }
+    </script>
+</body>
+</html> 

@@ -34,9 +34,120 @@ app.get('/bookmarklet', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'bookmarklet.html'));
 });
 
+// Маршрут для тестирования WebSocket
+app.get('/ws-test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'ws-test.html'));
+});
+
 // Маршрут для главной страницы
 app.get('/', (req, res) => {
     res.redirect('/bookmarklet');
+});
+
+// Добавляем маршрут для проверки состояния WebSocket
+app.get('/ws-status', (req, res) => {
+    const status = {
+        server: 'running',
+        websocket: wss.clients ? 'available' : 'unavailable',
+        activeAdmins: Array.from(admins.keys()).length,
+        activeClients: Array.from(clients.keys()).length,
+        serverTime: new Date().toISOString()
+    };
+    
+    console.log('WS Status Check:', status);
+    res.json(status);
+});
+
+// Настройка CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Client-Id');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  
+  // Обработка preflight запросов
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Маршрут для client.js с правильными заголовками
+app.get('/client.js', (req, res) => {
+  res.header('Content-Type', 'application/javascript');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.sendFile(path.join(__dirname, 'public', 'client.js'));
+});
+
+// HTTP API endpoint для клиентов, у которых не работает WebSocket
+app.post('/api/data', (req, res) => {
+  const data = req.body;
+  const clientId = req.headers['x-client-id'] || null;
+  
+  console.log(`Получен HTTP запрос от клиента ${clientId || 'без ID'}:`, data);
+  
+  let responseData = {
+    success: true,
+    timestamp: Date.now()
+  };
+  
+  // Обработка данных аналогично WebSocket подключению
+  if (data.type === 'register' && data.role === 'client') {
+    // Регистрация нового клиента
+    const newClientId = clientId || `client_http_${Date.now()}`;
+    
+    responseData.clientId = newClientId;
+    console.log(`Зарегистрирован новый HTTP клиент с ID: ${newClientId}`);
+    
+    // Добавляем клиента в список клиентов, если его там еще нет
+    if (!clients.has(newClientId)) {
+      clients.set(newClientId, {
+        id: newClientId,
+        url: data.url,
+        title: data.title,
+        connectedAt: Date.now(),
+        lastActivity: Date.now(),
+        isHttpClient: true
+      });
+      
+      // Уведомляем всех администраторов о новом клиенте
+      notifyAdmins('clientConnected', {
+        clientId: newClientId,
+        url: data.url,
+        title: data.title
+      });
+    } else {
+      // Обновляем информацию о существующем клиенте
+      const client = clients.get(newClientId);
+      client.url = data.url;
+      client.title = data.title;
+      client.lastActivity = Date.now();
+    }
+  } else if (data.type === 'data' && clientId) {
+    // Обрабатываем данные от клиента
+    const client = clients.get(clientId);
+    
+    if (client) {
+      client.lastActivity = Date.now();
+      
+      // Пересылаем данные от клиента всем администраторам, отслеживающим этого клиента
+      notifyAdminsTrackingClient(clientId, 'clientData', {
+        clientId: clientId,
+        data: data.payload
+      });
+    }
+  }
+  
+  // Добавляем команды, которые нужно отправить клиенту
+  responseData.commands = [];
+  
+  // Если у клиента есть ожидающие команды, отправляем их в ответе
+  if (clientId && pendingCommands.has(clientId)) {
+    responseData.commands = pendingCommands.get(clientId);
+    pendingCommands.delete(clientId);
+  }
+  
+  res.json(responseData);
 });
 
 // Middleware для логирования запросов
@@ -48,11 +159,28 @@ app.use((req, res, next) => {
 // Обработка WebSocket подключений
 wss.on('connection', (ws, req) => {
     const clientId = generateClientId();
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    
     console.log(`Новое соединение: ${clientId}`);
+    console.log(`IP клиента: ${ipAddress}`);
+    console.log(`User-Agent: ${req.headers['user-agent']}`);
+    console.log(`Origin: ${req.headers.origin || 'Не определено'}`);
+    
+    // Отправляем приветственное сообщение для проверки соединения
+    try {
+        ws.send(JSON.stringify({
+            type: 'welcome',
+            message: 'Соединение с сервером установлено',
+            timestamp: Date.now()
+        }));
+    } catch (error) {
+        console.error(`Ошибка при отправке приветственного сообщения: ${error}`);
+    }
     
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
+            console.log(`Получено сообщение от ${clientId}:`, data.type);
             
             switch(data.type) {
                 case 'register':
