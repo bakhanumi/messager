@@ -1,8 +1,8 @@
 // Проверка, загружен ли уже скрипт
-console.log('Скрипт client.js загружен и начал выполнение');
+console.log('%c Скрипт client.js загружен и начал выполнение', 'background:#3498db;color:white;padding:5px;border-radius:3px;');
 
 if (typeof window.WebMonitorInstance !== 'undefined') {
-    console.log('WebMonitor уже загружен. Повторная инициализация не требуется.');
+    console.log('%c WebMonitor уже загружен. Повторная инициализация не требуется.', 'background:#f39c12;color:white;padding:5px;border-radius:3px;');
 } else {
     // Основной код WebMonitor
     class WebMonitor {
@@ -21,15 +21,81 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
             this.fontSize = 14; // Начальный размер шрифта
             this.textOpacity = 0.9; // Начальная прозрачность шрифта
             this.textColor = '#D3D3D3'; // Светло-серый цвет
+            this.apiUrl = null; // URL для HTTP API
+            this.diagnostic = true; // Режим расширенной диагностики
+            this.connectionTestPromise = null; // Промис для теста соединения
+            
+            // Сначала пробуем определить источник скрипта
+            this.determineServerUrl();
             
             // Эмуляция jQuery
             this.emulateJQuery();
             
-            this.init();
-            this.setupKeyboardShortcuts();
-            
             // Показываем сообщение о загрузке
             this.showConnectionStatus(true, 'Мониторинг активирован');
+            
+            // Запускаем инициализацию
+            this.init();
+            
+            // Настраиваем горячие клавиши
+            this.setupKeyboardShortcuts();
+        }
+        
+        // Определение URL сервера на основе URL скрипта или других источников
+        determineServerUrl() {
+            try {
+                // Сначала пытаемся получить URL из скрипта
+                let scriptSrc = '';
+                const scriptTags = document.querySelectorAll('script');
+                for (const tag of scriptTags) {
+                    if (tag.src && tag.src.includes('/client.js')) {
+                        scriptSrc = tag.src;
+                        break;
+                    }
+                }
+                
+                if (scriptSrc) {
+                    const baseUrl = scriptSrc.replace('/client.js', '');
+                    this.wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+                    this.apiUrl = `${baseUrl}/api/data`;
+                    console.log('%c URL сервера определен из скрипта:', 'color:#2ecc71', this.wsUrl);
+                } else {
+                    // Если не нашли URL в скрипте, используем hardcoded URL
+                    const fallbackUrl = 'https://messager-pkl3.onrender.com';
+                    this.wsUrl = fallbackUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+                    this.apiUrl = `${fallbackUrl}/api/data`;
+                    console.log('%c URL сервера использован по умолчанию:', 'color:#f39c12', this.wsUrl);
+                }
+                
+                // Тестируем HTTP соединение 
+                this.testHttpConnection();
+            } catch (error) {
+                console.error('Ошибка при определении URL сервера:', error);
+                // Используем резервный URL в случае ошибки
+                this.wsUrl = 'wss://messager-pkl3.onrender.com';
+                this.apiUrl = 'https://messager-pkl3.onrender.com/api/data';
+            }
+        }
+        
+        // Тестирование HTTP соединения с сервером
+        testHttpConnection() {
+            const testUrl = `${this.apiUrl.replace('/api/data', '')}/connection-test?t=${Date.now()}`;
+            
+            this.connectionTestPromise = fetch(testUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('%c HTTP соединение успешно:', 'color:#2ecc71', data);
+                    return true;
+                })
+                .catch(error => {
+                    console.error('%c Ошибка HTTP соединения:', 'color:#e74c3c', error);
+                    return false;
+                });
         }
         
         // Эмуляция jQuery, если его нет на странице
@@ -62,7 +128,22 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
         }
         
         init() {
-            this.connect();
+            // Проверяем, доступен ли HTTP, прежде чем пытаться подключиться через WebSocket
+            if (this.connectionTestPromise) {
+                this.connectionTestPromise.then(success => {
+                    if (success) {
+                        this.connect(); // Если HTTP работает, пробуем и WebSocket
+                    } else {
+                        // Если HTTP не работает, показываем ошибку
+                        this.showConnectionStatus(false, 'Сервер недоступен. Проверьте соединение.');
+                        console.error('Сервер недоступен. WebSocket подключение не будет инициализировано.');
+                    }
+                });
+            } else {
+                // Если нет теста соединения, просто пробуем подключиться
+                this.connect();
+            }
+            
             this.setupAutoReconnect();
             this.startDataCollection();
             
@@ -72,33 +153,11 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
             }, 2000);
         }
         
-        connect() {
-            // Используем специфический URL вместо динамического
-            // Получаем URL скрипта и преобразуем его в URL WebSocket
-            let scriptSrc = '';
-            const scriptTags = document.querySelectorAll('script');
-            for (const tag of scriptTags) {
-                if (tag.src && tag.src.includes('/client.js')) {
-                    scriptSrc = tag.src;
-                    break;
-                }
-            }
-            
-            let wsUrl;
-            if (scriptSrc) {
-                // Преобразуем URL скрипта в URL WebSocket
-                wsUrl = scriptSrc.replace('http://', 'ws://').replace('https://', 'wss://').replace('/client.js', '');
-                console.log('URL скрипта обнаружен:', scriptSrc);
-            } else {
-                // Если не удалось получить URL из скрипта, используем конкретный URL
-                wsUrl = 'wss://messager-pkl3.onrender.com';
-                console.log('URL скрипта не обнаружен, используем hardcoded URL');
-            }
-            
-            console.log(`Подключение к WebSocket серверу: ${wsUrl}`);
+        connect() {            
+            console.log(`%c Подключение к WebSocket серверу: ${this.wsUrl}`, 'color:#3498db');
             
             try {
-                this.ws = new WebSocket(wsUrl);
+                this.ws = new WebSocket(this.wsUrl);
                 
                 this.ws.onopen = () => {
                     console.log('%c WebSocket подключение успешно установлено', 'background: green; color: white; padding: 2px;');
@@ -139,12 +198,18 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
                     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
                         this.useHttpFallback = true;
                         this.showConnectionStatus(false, 'WebSocket недоступен, переключаемся на HTTP');
+                        
+                        // После переключения на HTTP, сразу регистрируем клиента
+                        this.register();
                     }
                 };
             } catch (error) {
                 console.error('Не удалось создать WebSocket соединение:', error);
                 this.showConnectionStatus(false, 'Не удалось создать соединение');
                 this.useHttpFallback = true;
+                
+                // После переключения на HTTP, сразу регистрируем клиента
+                this.register();
             }
         }
         
@@ -167,6 +232,9 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
                 this.useHttpFallback = true;
                 this.showConnectionStatus(false, 'Переключение на HTTP после неудачных попыток подключения');
                 console.log('Переключение на HTTP после нескольких неудачных попыток подключения');
+                
+                // После переключения на HTTP, сразу регистрируем клиента
+                this.register();
             }
         }
         
@@ -251,26 +319,15 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
         sendMessage(data) {
             // Если активен режим HTTP Fallback, используем HTTP вместо WebSocket
             if (this.useHttpFallback) {
-                // Получаем базовый URL из URL скрипта или используем hardcoded URL
-                let baseUrl = '';
-                const scriptTags = document.querySelectorAll('script');
-                for (const tag of scriptTags) {
-                    if (tag.src && tag.src.includes('/client.js')) {
-                        baseUrl = tag.src.replace('/client.js', '');
-                        break;
-                    }
+                if (!this.apiUrl) {
+                    console.error('HTTP API URL не определен.');
+                    this.showConnectionStatus(false, 'Ошибка: URL API не определен');
+                    return;
                 }
                 
-                if (!baseUrl) {
-                    baseUrl = 'https://messager-pkl3.onrender.com';
-                }
+                console.log(`%c Отправка данных через HTTP: ${this.apiUrl}`, 'color:#3498db', data);
                 
-                // Добавляем /api/data к базовому URL
-                const apiUrl = `${baseUrl}/api/data`;
-                
-                console.log(`Отправка данных через HTTP: ${apiUrl}`, data);
-                
-                fetch(apiUrl, {
+                fetch(this.apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -285,18 +342,33 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
                     return response.json();
                 })
                 .then(responseData => {
-                    console.log('Данные успешно отправлены через HTTP:', responseData);
+                    console.log('%c Данные успешно отправлены через HTTP:', 'color:#2ecc71', responseData);
+                    
                     // Если в ответе есть команды или клиентский ID, обрабатываем их
                     if (responseData.clientId && !this.clientId) {
                         this.clientId = responseData.clientId;
                         console.log(`Получен ID клиента через HTTP: ${this.clientId}`);
+                        // Показываем уведомление о регистрации
+                        this.showConnectionStatus(true, `Клиент зарегистрирован: ${this.clientId}`);
                     }
+                    
+                    // Обновляем настройки, если они есть в ответе
+                    if (responseData.settings) {
+                        if (responseData.settings.updateInterval) {
+                            this.updateInterval = responseData.settings.updateInterval;
+                        }
+                        if (responseData.settings.messageOpacity) {
+                            this.messageOpacity = responseData.settings.messageOpacity;
+                        }
+                    }
+                    
+                    // Обрабатываем команды от сервера
                     if (responseData.commands && Array.isArray(responseData.commands)) {
                         responseData.commands.forEach(cmd => this.handleMessage(cmd));
                     }
                 })
                 .catch(error => {
-                    console.error('Ошибка HTTP запроса:', error);
+                    console.error('%c Ошибка HTTP запроса:', 'color:#e74c3c', error);
                     this.showConnectionStatus(false, `Ошибка HTTP: ${error.message}`);
                 });
                 
@@ -305,7 +377,7 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
             
             // Стандартная отправка через WebSocket
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                console.log('Отправка сообщения на сервер:', data);
+                console.log('Отправка сообщения через WebSocket:', data);
                 this.ws.send(JSON.stringify(data));
             } else {
                 console.warn('Попытка отправить сообщение, но WebSocket не подключен. Статус:', this.ws ? this.ws.readyState : 'undefined');
@@ -315,6 +387,13 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
                     setTimeout(() => this.sendMessage(data), 1000);
                 } else {
                     this.showConnectionStatus(false, 'Не удалось отправить данные, соединение закрыто');
+                    
+                    // Автоматическое переключение на HTTP, если WebSocket недоступен
+                    if (!this.useHttpFallback) {
+                        console.log('Автоматическое переключение на HTTP после ошибки отправки');
+                        this.useHttpFallback = true;
+                        this.sendMessage(data); // Повторная отправка через HTTP
+                    }
                 }
             }
         }
@@ -533,37 +612,54 @@ if (typeof window.WebMonitorInstance !== 'undefined') {
         
         // Метод для отображения статуса подключения
         showConnectionStatus(success, message) {
-            const statusElement = document.createElement('div');
-            statusElement.style.cssText = `
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                padding: 10px 15px;
-                background-color: ${success ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)'};
-                color: white;
-                font-family: Arial, sans-serif;
-                font-size: 12px;
-                border-radius: 4px;
-                z-index: 9999999;
-                pointer-events: none;
-                max-width: 300px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            `;
+            // Если статус уже отображается, обновляем его
+            let statusElement = document.getElementById('monitor-connection-status');
+            
+            if (!statusElement) {
+                statusElement = document.createElement('div');
+                statusElement.id = 'monitor-connection-status';
+                statusElement.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    padding: 10px 15px;
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    font-size: 12px;
+                    border-radius: 4px;
+                    z-index: 9999999;
+                    pointer-events: none;
+                    max-width: 300px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    transition: opacity 0.3s, transform 0.3s;
+                `;
+                document.body.appendChild(statusElement);
+            }
+            
+            // Обновляем стиль и содержимое
+            statusElement.style.backgroundColor = success ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)';
             statusElement.textContent = message;
             
-            document.body.appendChild(statusElement);
+            // Анимация для привлечения внимания
+            statusElement.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                statusElement.style.transform = 'scale(1)';
+            }, 200);
             
             // Удаляем уведомление через 5 секунд
             setTimeout(() => {
                 statusElement.style.opacity = '0';
-                statusElement.style.transition = 'opacity 0.5s';
                 
-                setTimeout(() => statusElement.remove(), 500);
+                setTimeout(() => {
+                    if (statusElement.parentNode) {
+                        statusElement.remove();
+                    }
+                }, 500);
             }, 5000);
         }
     }
     
     // Инициализация монитора и сохранение экземпляра в глобальной переменной
     window.WebMonitorInstance = new WebMonitor();
-    console.log('WebMonitor успешно загружен и инициализирован.');
+    console.log('%c WebMonitor успешно загружен и инициализирован', 'background:#2ecc71;color:white;padding:5px;border-radius:3px;');
 } 

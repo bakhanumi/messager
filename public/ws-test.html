@@ -3,300 +3,584 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тест WebSocket соединения</title>
+    <title>Диагностика WebSocket</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
             padding: 20px;
         }
         
-        h1 {
-            color: #4a6ee0;
-        }
-        
-        .status-box {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .success {
-            background-color: #d4edda;
-            border-left: 4px solid #28a745;
-        }
-        
-        .error {
-            background-color: #f8d7da;
-            border-left: 4px solid #dc3545;
-        }
-        
-        .pending {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-        }
-        
-        .info {
-            background-color: #d1ecf1;
-            border-left: 4px solid #17a2b8;
-        }
-        
-        pre {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-        
-        button {
-            background: #4a6ee0;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-right: 10px;
-        }
-        
-        button:hover {
-            background: #3a5ecc;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .status-item {
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-        
-        .status-label {
-            font-weight: bold;
-            color: #666;
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
         }
         
         .log-container {
-            margin-top: 20px;
-            max-height: 300px;
+            height: 300px;
             overflow-y: auto;
-            border: 1px solid #ddd;
+            font-family: monospace;
+            background-color: #343a40;
+            color: #ffffff;
             padding: 10px;
             border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
         }
         
-        .log-entry {
-            margin-bottom: 5px;
-            padding: 5px;
-            border-bottom: 1px solid #eee;
+        .success {
+            color: #2ecc71;
         }
         
-        .log-time {
-            color: #666;
-            font-size: 0.85em;
+        .error {
+            color: #e74c3c;
+        }
+        
+        .warning {
+            color: #f39c12;
+        }
+        
+        .info {
+            color: #3498db;
+        }
+        
+        .settings {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-badge {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .test-group {
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .test-group-header {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+        }
+        
+        .test-group-body {
+            padding: 15px;
+        }
+        
+        .result-panel {
+            margin-top: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .result-panel-header {
+            padding: 10px 15px;
+            font-weight: bold;
+        }
+        
+        .result-panel-body {
+            padding: 15px;
+        }
+        
+        .response-data {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <h1>Тест WebSocket соединения</h1>
-    
-    <div class="status-box pending" id="connection-status">
-        <h3>Статус соединения</h3>
-        <p>Проверка соединения...</p>
-    </div>
-    
-    <div class="status-grid">
-        <div class="status-item">
-            <div class="status-label">URL сервера:</div>
-            <div id="server-url"></div>
+    <div class="container">
+        <h1 class="mb-4">Диагностика соединения</h1>
+        <p class="lead">Эта страница поможет проверить доступность WebSocket и HTTP API сервера.</p>
+        
+        <div class="settings">
+            <h5>Настройки диагностики</h5>
+            <div class="row g-3 align-items-center mb-3">
+                <div class="col-auto">
+                    <label for="server-url" class="col-form-label">URL сервера:</label>
+                </div>
+                <div class="col-md-6">
+                    <input type="text" id="server-url" class="form-control" readonly>
+                </div>
+                <div class="col-auto">
+                    <span id="server-status" class="status-badge bg-secondary">Не проверен</span>
+                </div>
+            </div>
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="message-input" class="col-form-label">Тестовое сообщение:</label>
+                </div>
+                <div class="col-md-6">
+                    <input type="text" id="message-input" class="form-control" value="Тестовое сообщение">
+                </div>
+                <div class="col-auto">
+                    <button id="send-message" class="btn btn-primary" disabled>Отправить сообщение</button>
+                </div>
+            </div>
         </div>
-        <div class="status-item">
-            <div class="status-label">Протокол:</div>
-            <div id="protocol"></div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="test-group">
+                    <div class="test-group-header">WebSocket</div>
+                    <div class="test-group-body">
+                        <div class="mb-3">
+                            <button id="test-websocket" class="btn btn-primary">Тест WebSocket</button>
+                            <button id="stop-websocket" class="btn btn-outline-danger ms-2" disabled>Остановить</button>
+                        </div>
+                        <div class="mb-3">
+                            <span>Статус: </span>
+                            <span id="websocket-status" class="status-badge bg-secondary">Не проверен</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="test-group">
+                    <div class="test-group-header">HTTP API</div>
+                    <div class="test-group-body">
+                        <div class="mb-3">
+                            <button id="test-http" class="btn btn-primary">Тест HTTP API</button>
+                            <button id="test-connection" class="btn btn-outline-info ms-2">Проверка подключения</button>
+                        </div>
+                        <div class="mb-3">
+                            <span>Статус: </span>
+                            <span id="http-status" class="status-badge bg-secondary">Не проверен</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="status-item">
-            <div class="status-label">Клиент ID:</div>
-            <div id="client-id">Не получен</div>
+        
+        <div class="log-container" id="log-container"></div>
+        
+        <div class="result-panel" id="result-panel" style="display: none;">
+            <div class="result-panel-header bg-light">
+                Результат запроса
+            </div>
+            <div class="result-panel-body">
+                <div id="response-data" class="response-data"></div>
+            </div>
         </div>
-        <div class="status-item">
-            <div class="status-label">WebSocket статус:</div>
-            <div id="ws-status">Не подключен</div>
+        
+        <div class="mt-4">
+            <h5>Диагностический букмарклет</h5>
+            <p>Перетащите эту ссылку в закладки браузера для быстрой диагностики соединения на любой странице:</p>
+            <a href="#" id="diagnostic-link" class="btn btn-warning">Диагностика соединения 🔍</a>
+            <p class="small text-muted mt-2">Код букмарклета будет автоматически обновлен на основе текущего URL сервера.</p>
         </div>
-    </div>
-    
-    <div>
-        <button id="test-connection">Протестировать соединение</button>
-        <button id="check-server">Проверить статус сервера</button>
-        <button id="clear-logs">Очистить логи</button>
-    </div>
-    
-    <div class="log-container" id="log-container">
-        <div class="log-entry">Ожидание действий...</div>
+        
+        <h3 class="mt-4">Результаты диагностики</h3>
+        <div id="diagnostics-summary">
+            <p>Запустите тесты для получения результатов диагностики.</p>
+        </div>
+        
+        <div class="mt-4">
+            <a href="bookmarklet.html" class="btn btn-outline-primary">Вернуться к букмарклету</a>
+            <a href="admin.html" class="btn btn-outline-secondary ms-2">Перейти в админ-панель</a>
+        </div>
+        
+        <footer class="text-center mt-5 text-muted">
+            <small>Диагностический инструмент WebSocket &copy; 2023</small>
+        </footer>
     </div>
     
     <script>
-        // Элементы страницы
-        const connectionStatus = document.getElementById('connection-status');
-        const serverUrlElement = document.getElementById('server-url');
-        const protocolElement = document.getElementById('protocol');
-        const clientIdElement = document.getElementById('client-id');
-        const wsStatusElement = document.getElementById('ws-status');
-        const logContainer = document.getElementById('log-container');
-        
-        // Кнопки
-        document.getElementById('test-connection').addEventListener('click', testConnection);
-        document.getElementById('check-server').addEventListener('click', checkServerStatus);
-        document.getElementById('clear-logs').addEventListener('click', () => {
-            logContainer.innerHTML = '';
-            addLogEntry('Логи очищены');
-        });
-        
-        // Глобальная переменная для WebSocket
-        let ws = null;
-        
-        // При загрузке страницы
-        window.onload = function() {
-            // Обновляем информацию о сервере
+        document.addEventListener('DOMContentLoaded', () => {
+            // Получаем базовый URL
             const protocol = window.location.protocol;
-            const host = window.location.host || 'localhost:3000';
-            const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${host}`;
+            const isSecure = protocol === 'https:';
+            const host = window.location.host;
+            const httpBaseUrl = `${protocol}//${host}`;
+            const wsBaseUrl = `${isSecure ? 'wss' : 'ws'}://${host}`;
             
-            serverUrlElement.textContent = `${protocol}//${host}`;
-            protocolElement.textContent = `HTTP: ${protocol}, WebSocket: ${wsProtocol}`;
+            // Устанавливаем URL сервера
+            document.getElementById('server-url').value = httpBaseUrl;
             
-            addLogEntry('Страница загружена. Готов к проверке соединения.');
-        };
-        
-        // Функция для проверки WebSocket соединения
-        function testConnection() {
-            if (ws) {
-                ws.close();
-                addLogEntry('Закрытие предыдущего соединения...');
+            // Элементы UI
+            const logContainer = document.getElementById('log-container');
+            const serverStatus = document.getElementById('server-status');
+            const websocketStatus = document.getElementById('websocket-status');
+            const httpStatus = document.getElementById('http-status');
+            const sendMessageBtn = document.getElementById('send-message');
+            const messageInput = document.getElementById('message-input');
+            const testWebsocketBtn = document.getElementById('test-websocket');
+            const stopWebsocketBtn = document.getElementById('stop-websocket');
+            const testHttpBtn = document.getElementById('test-http');
+            const testConnectionBtn = document.getElementById('test-connection');
+            const resultPanel = document.getElementById('result-panel');
+            const responseData = document.getElementById('response-data');
+            const diagnosticsSummary = document.getElementById('diagnostics-summary');
+            
+            // Переменные для хранения состояния
+            let ws = null;
+            let clientId = null;
+            
+            // Логирование 
+            function log(message, type = 'info') {
+                const logEntry = document.createElement('div');
+                logEntry.classList.add(type);
+                const time = new Date().toLocaleTimeString();
+                logEntry.innerHTML = `[${time}] ${message}`;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
             }
             
-            connectionStatus.className = 'status-box pending';
-            connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Подключение...</p>';
+            // Изменение статуса
+            function updateStatus(element, status, color) {
+                element.textContent = status;
+                element.className = `status-badge bg-${color}`;
+            }
             
-            try {
-                const protocol = window.location.protocol;
-                const host = window.location.host || 'localhost:3000';
-                const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${wsProtocol}//${host}`;
+            // Отображение результата запроса
+            function showResponse(data) {
+                resultPanel.style.display = 'block';
+                responseData.textContent = JSON.stringify(data, null, 2);
+            }
+            
+            // Тестирование WebSocket соединения
+            function testWebSocket() {
+                updateStatus(websocketStatus, 'Соединение...', 'warning');
+                log('Инициализация WebSocket соединения...', 'info');
                 
-                addLogEntry(`Попытка подключения к ${wsUrl}`);
-                
-                ws = new WebSocket(wsUrl);
-                
-                ws.onopen = function(event) {
-                    addLogEntry('WebSocket соединение установлено', 'success');
-                    connectionStatus.className = 'status-box success';
-                    connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Соединение установлено успешно!</p>';
-                    wsStatusElement.textContent = 'Подключен';
+                try {
+                    ws = new WebSocket(wsBaseUrl);
                     
-                    // Регистрируем клиента
-                    const registerMessage = {
-                        type: 'register',
-                        role: 'client',
-                        url: window.location.href,
-                        title: document.title
+                    ws.onopen = () => {
+                        log('WebSocket соединение успешно установлено', 'success');
+                        updateStatus(websocketStatus, 'Подключено', 'success');
+                        updateStatus(serverStatus, 'Онлайн', 'success');
+                        sendMessageBtn.disabled = false;
+                        stopWebsocketBtn.disabled = false;
+                        
+                        // Регистрация в качестве клиента
+                        const registerMsg = {
+                            type: 'register',
+                            role: 'client',
+                            url: window.location.href,
+                            title: document.title
+                        };
+                        ws.send(JSON.stringify(registerMsg));
+                        log('Отправлен запрос на регистрацию клиента', 'info');
                     };
                     
-                    addLogEntry('Отправка регистрационных данных: ' + JSON.stringify(registerMessage));
-                    ws.send(JSON.stringify(registerMessage));
-                };
-                
-                ws.onmessage = function(event) {
-                    try {
-                        const data = JSON.parse(event.data);
-                        addLogEntry(`Получено сообщение: ${JSON.stringify(data)}`, 'info');
-                        
-                        if (data.type === 'setClientId') {
-                            clientIdElement.textContent = data.clientId;
-                            addLogEntry(`Получен ID клиента: ${data.clientId}`, 'success');
+                    ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            log(`Получено сообщение: ${JSON.stringify(data)}`, 'success');
+                            showResponse(data);
+                            
+                            // Если это сообщение с ID клиента, сохраняем его
+                            if (data.type === 'setClientId') {
+                                clientId = data.clientId;
+                                log(`Получен ID клиента: ${clientId}`, 'success');
+                            }
+                        } catch (e) {
+                            log(`Ошибка парсинга сообщения: ${e.message}`, 'error');
                         }
-                    } catch (error) {
-                        addLogEntry(`Ошибка при обработке сообщения: ${error}`, 'error');
-                    }
-                };
-                
-                ws.onclose = function(event) {
-                    addLogEntry(`WebSocket соединение закрыто. Код: ${event.code}, Причина: ${event.reason || 'Не указана'}`, 'error');
-                    connectionStatus.className = 'status-box error';
-                    connectionStatus.innerHTML = `<h3>Статус соединения</h3><p>Соединение закрыто. Код: ${event.code}</p>`;
-                    wsStatusElement.textContent = 'Закрыто';
-                };
-                
-                ws.onerror = function(error) {
-                    addLogEntry('Ошибка WebSocket соединения', 'error');
-                    connectionStatus.className = 'status-box error';
-                    connectionStatus.innerHTML = '<h3>Статус соединения</h3><p>Ошибка соединения</p>';
-                    wsStatusElement.textContent = 'Ошибка';
-                };
-            } catch (error) {
-                addLogEntry(`Не удалось создать WebSocket соединение: ${error}`, 'error');
-                connectionStatus.className = 'status-box error';
-                connectionStatus.innerHTML = `<h3>Статус соединения</h3><p>Не удалось установить соединение: ${error}</p>`;
-                wsStatusElement.textContent = 'Ошибка';
+                    };
+                    
+                    ws.onclose = (event) => {
+                        log(`WebSocket соединение закрыто. Код: ${event.code}, Причина: ${event.reason || 'Не указана'}`, 'warning');
+                        updateStatus(websocketStatus, 'Отключено', 'danger');
+                        sendMessageBtn.disabled = true;
+                        stopWebsocketBtn.disabled = true;
+                        
+                        if (event.code !== 1000) {
+                            // Ненормальное закрытие
+                            updateDiagnosticsSummary('websocket', false, `Соединение закрыто с кодом ${event.code}`);
+                        }
+                    };
+                    
+                    ws.onerror = (error) => {
+                        log('Ошибка WebSocket соединения', 'error');
+                        updateStatus(websocketStatus, 'Ошибка', 'danger');
+                        updateDiagnosticsSummary('websocket', false, 'Ошибка соединения');
+                    };
+                } catch (e) {
+                    log(`Не удалось создать WebSocket: ${e.message}`, 'error');
+                    updateStatus(websocketStatus, 'Ошибка', 'danger');
+                    updateDiagnosticsSummary('websocket', false, e.message);
+                }
             }
-        }
-        
-        // Функция для проверки статуса сервера
-        function checkServerStatus() {
-            addLogEntry('Проверка статуса сервера...');
             
-            fetch('/ws-status')
+            // Отправка сообщения через WebSocket
+            function sendMessage() {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    log('WebSocket не подключен', 'error');
+                    return;
+                }
+                
+                const message = messageInput.value;
+                const data = {
+                    type: 'message',
+                    content: message,
+                    timestamp: Date.now()
+                };
+                
+                try {
+                    ws.send(JSON.stringify(data));
+                    log(`Отправлено сообщение: ${message}`, 'info');
+                } catch (e) {
+                    log(`Ошибка отправки сообщения: ${e.message}`, 'error');
+                }
+            }
+            
+            // Остановка WebSocket соединения
+            function stopWebSocket() {
+                if (ws) {
+                    ws.close(1000, 'Закрыто пользователем');
+                    log('WebSocket соединение закрыто пользователем', 'info');
+                    updateStatus(websocketStatus, 'Закрыто', 'secondary');
+                    sendMessageBtn.disabled = true;
+                    stopWebsocketBtn.disabled = true;
+                }
+            }
+            
+            // Тестирование HTTP API
+            function testHttpApi() {
+                updateStatus(httpStatus, 'Отправка...', 'warning');
+                log('Отправка HTTP запроса к API...', 'info');
+                
+                const testData = {
+                    type: 'register',
+                    role: 'client',
+                    url: window.location.href,
+                    title: document.title
+                };
+                
+                fetch(`${httpBaseUrl}/api/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Client-Id': clientId || 'test-client'
+                    },
+                    body: JSON.stringify(testData)
+                })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(`HTTP ошибка: ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    addLogEntry(`Получен статус сервера: ${JSON.stringify(data)}`, 'info');
+                    log('HTTP API запрос успешно выполнен', 'success');
+                    updateStatus(httpStatus, 'Успех', 'success');
+                    updateStatus(serverStatus, 'Онлайн', 'success');
+                    showResponse(data);
                     
-                    const statusHtml = `
-                        <h3>Статус сервера</h3>
-                        <p>Сервер: ${data.server}</p>
-                        <p>WebSocket: ${data.websocket}</p>
-                        <p>Активных админов: ${data.activeAdmins}</p>
-                        <p>Активных клиентов: ${data.activeClients}</p>
-                        <p>Время сервера: ${data.serverTime}</p>
-                    `;
+                    if (data.clientId) {
+                        clientId = data.clientId;
+                        log(`Получен ID клиента через HTTP: ${clientId}`, 'success');
+                    }
                     
-                    connectionStatus.className = 'status-box info';
-                    connectionStatus.innerHTML = statusHtml;
+                    updateDiagnosticsSummary('http', true);
                 })
                 .catch(error => {
-                    addLogEntry(`Ошибка при проверке статуса сервера: ${error}`, 'error');
-                    connectionStatus.className = 'status-box error';
-                    connectionStatus.innerHTML = `<h3>Статус сервера</h3><p>Ошибка: ${error}</p>`;
+                    log(`Ошибка HTTP API запроса: ${error.message}`, 'error');
+                    updateStatus(httpStatus, 'Ошибка', 'danger');
+                    updateDiagnosticsSummary('http', false, error.message);
                 });
-        }
-        
-        // Функция для добавления записи в лог
-        function addLogEntry(message, type = '') {
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
+            }
             
-            const time = new Date().toLocaleTimeString();
+            // Тестирование доступности сервера
+            function testConnection() {
+                log('Проверка доступности сервера...', 'info');
+                
+                fetch(`${httpBaseUrl}/connection-test?t=${Date.now()}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ошибка: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    log('Сервер доступен', 'success');
+                    updateStatus(serverStatus, 'Онлайн', 'success');
+                    showResponse(data);
+                    
+                    updateDiagnosticsSummary('connection', true);
+                })
+                .catch(error => {
+                    log(`Ошибка проверки доступности: ${error.message}`, 'error');
+                    updateStatus(serverStatus, 'Недоступен', 'danger');
+                    updateDiagnosticsSummary('connection', false, error.message);
+                });
+            }
             
-            entry.innerHTML = `
-                <span class="log-time">[${time}]</span> ${message}
-            `;
+            // Обновление сводки диагностики
+            function updateDiagnosticsSummary(testType, success, errorMessage = '') {
+                let diagnosticsHTML = '<table class="table table-sm">';
+                diagnosticsHTML += '<thead><tr><th>Тест</th><th>Статус</th><th>Детали</th></tr></thead><tbody>';
+                
+                // Функция для добавления строки в таблицу
+                const addRow = (name, status, details) => {
+                    const statusClass = status === 'Успех' ? 'success' : status === 'Не выполнено' ? 'secondary' : 'danger';
+                    diagnosticsHTML += `<tr>
+                        <td>${name}</td>
+                        <td><span class="badge bg-${statusClass}">${status}</span></td>
+                        <td>${details}</td>
+                    </tr>`;
+                };
+                
+                // Обновляем результаты для конкретного теста
+                if (testType === 'websocket') {
+                    websocketResult = {
+                        status: success ? 'Успех' : 'Ошибка',
+                        details: success ? 'WebSocket соединение установлено' : `Ошибка: ${errorMessage}`
+                    };
+                } else if (testType === 'http') {
+                    httpResult = {
+                        status: success ? 'Успех' : 'Ошибка',
+                        details: success ? 'HTTP API доступен' : `Ошибка: ${errorMessage}`
+                    };
+                } else if (testType === 'connection') {
+                    connectionResult = {
+                        status: success ? 'Успех' : 'Ошибка',
+                        details: success ? 'Сервер отвечает на запросы' : `Ошибка: ${errorMessage}`
+                    };
+                }
+                
+                // Добавляем строки с результатами
+                addRow('Подключение к серверу', connectionResult?.status || 'Не выполнено', connectionResult?.details || 'Тест не выполнялся');
+                addRow('WebSocket', websocketResult?.status || 'Не выполнено', websocketResult?.details || 'Тест не выполнялся');
+                addRow('HTTP API', httpResult?.status || 'Не выполнено', httpResult?.details || 'Тест не выполнялся');
+                
+                diagnosticsHTML += '</tbody></table>';
+                
+                // Добавляем общее заключение
+                const allSuccess = connectionResult?.status === 'Успех' && 
+                                  (websocketResult?.status === 'Успех' || httpResult?.status === 'Успех');
+                
+                if (allSuccess) {
+                    diagnosticsHTML += `<div class="alert alert-success">
+                        <strong>Диагностика завершена успешно!</strong> Соединение с сервером работает корректно.
+                    </div>`;
+                } else if (connectionResult?.status === 'Ошибка') {
+                    diagnosticsHTML += `<div class="alert alert-danger">
+                        <strong>Сервер недоступен!</strong> Проверьте, работает ли сервер и доступен ли он по указанному URL.
+                    </div>`;
+                } else if (websocketResult?.status === 'Ошибка' && httpResult?.status === 'Ошибка') {
+                    diagnosticsHTML += `<div class="alert alert-danger">
+                        <strong>Ошибка подключения!</strong> Ни WebSocket, ни HTTP API не работают. Проверьте настройки сервера.
+                    </div>`;
+                } else if (websocketResult?.status === 'Ошибка' && httpResult?.status === 'Успех') {
+                    diagnosticsHTML += `<div class="alert alert-warning">
+                        <strong>WebSocket недоступен, но HTTP API работает!</strong> Клиент будет использовать HTTP fallback.
+                    </div>`;
+                }
+                
+                diagnosticsSummary.innerHTML = diagnosticsHTML;
+            }
             
-            logContainer.appendChild(entry);
-            logContainer.scrollTop = logContainer.scrollHeight; // Прокрутка вниз
-        }
+            // Создание диагностического букмарклета
+            function createDiagnosticBookmarklet() {
+                const bookmarkletDiagnostic = `javascript:(function(){
+                    console.clear();
+                    console.log('🚀 Начало диагностики подключения...');
+                    
+                    // Создаем визуальное окно диагностики
+                    var diagnosticWindow = document.createElement('div');
+                    diagnosticWindow.id = 'monitor-diagnostic';
+                    diagnosticWindow.style.cssText = 'position:fixed;top:50px;right:10px;background:rgba(0,0,0,0.85);color:white;padding:15px;border-radius:5px;z-index:999999;max-width:350px;font-family:Arial,sans-serif;font-size:12px;box-shadow:0 5px 15px rgba(0,0,0,0.3);';
+                    
+                    diagnosticWindow.innerHTML = '<div style="margin-bottom:10px;font-weight:bold;font-size:14px;border-bottom:1px solid #555;padding-bottom:5px;">🔍 Диагностика подключения</div><div id="diag-log" style="max-height:300px;overflow-y:auto;"></div>';
+                    document.body.appendChild(diagnosticWindow);
+                    
+                    // Функция для добавления логов в окно диагностики
+                    function logStatus(message, type) {
+                        var color = type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : type === 'warning' ? '#f39c12' : '#3498db';
+                        var logEl = document.getElementById('diag-log');
+                        var time = new Date().toLocaleTimeString();
+                        logEl.innerHTML += '<div style="margin-bottom:5px;"><span style="color:'+color+'">['+time+']</span> '+message+'</div>';
+                        logEl.scrollTop = logEl.scrollHeight;
+                    }
+                    
+                    // Начало диагностики
+                    logStatus('Начало диагностики', 'info');
+                    
+                    // Проверка доступности сервера по HTTP
+                    logStatus('Проверка доступности сервера...', 'info');
+                    fetch('${httpBaseUrl}/connection-test?t='+Date.now())
+                    .then(response => response.json())
+                    .then(data => {
+                        logStatus('✅ Сервер доступен по HTTP!', 'success');
+                        
+                        // Загрузка скрипта мониторинга
+                        logStatus('Загрузка скрипта client.js...', 'info');
+                        var s = document.createElement('script');
+                        s.src = '${httpBaseUrl}/client.js';
+                        s.onload = function() {
+                            logStatus('✅ Скрипт client.js успешно загружен', 'success');
+                        };
+                        s.onerror = function() {
+                            logStatus('❌ Ошибка загрузки client.js', 'error');
+                        };
+                        document.body.appendChild(s);
+                    })
+                    .catch(error => {
+                        logStatus('❌ Сервер недоступен по HTTP! ' + error.message, 'error');
+                    });
+                    
+                    // Добавляем кнопку закрытия
+                    var closeBtn = document.createElement('button');
+                    closeBtn.textContent = 'Закрыть';
+                    closeBtn.style.cssText = 'background:#3498db;border:none;color:white;padding:5px 10px;margin-top:10px;border-radius:3px;cursor:pointer;';
+                    closeBtn.onclick = function() {
+                        document.getElementById('monitor-diagnostic').remove();
+                    };
+                    setTimeout(() => document.getElementById('diag-log').parentNode.appendChild(closeBtn), 1000);
+                })()`;
+                
+                document.getElementById('diagnostic-link').href = bookmarkletDiagnostic;
+            }
+            
+            // Инициализация результатов диагностики
+            let connectionResult = null;
+            let websocketResult = null;
+            let httpResult = null;
+            
+            // События кнопок
+            testWebsocketBtn.addEventListener('click', testWebSocket);
+            stopWebsocketBtn.addEventListener('click', stopWebSocket);
+            testHttpBtn.addEventListener('click', testHttpApi);
+            testConnectionBtn.addEventListener('click', testConnection);
+            sendMessageBtn.addEventListener('click', sendMessage);
+            
+            // Создаем диагностический букмарклет
+            createDiagnosticBookmarklet();
+            
+            // Проверяем доступность сервера при загрузке страницы
+            testConnection();
+            
+            // Логируем информацию о среде
+            log(`Среда: ${navigator.userAgent}`, 'info');
+            log(`URL сервера: ${httpBaseUrl}`, 'info');
+            log(`WebSocket URL: ${wsBaseUrl}`, 'info');
+            log('Страница диагностики загружена. Запустите тесты для проверки подключения.', 'info');
+        });
     </script>
 </body>
 </html> 
